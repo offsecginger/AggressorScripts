@@ -8,6 +8,7 @@ Aggressor scripts for use with [Cobalt Strike](https://cobaltstrike.com) 3.0+
 * Windows JScript .js (for wscript or cscript)
 * .JSP (Via PowerShell)
 * Tomcat .WAR (Via PowerShell)
+* PowerLessShell (Shellcode version) (Still uses MSBuild, but with RC4)
 * More to come... Ideas?
 
 # Other Aggressor Repos
