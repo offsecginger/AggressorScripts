@@ -39,6 +39,12 @@
 #	NOTE: Python must be installed, because writing the RC4 alg in 
 #	Sleep is ridiculous.
 
+# AES Powershell
+#
+#	Generates an AES encrypted payload. Gets decrypted in memory and executed.
+#	NOTE: Pythong must be installed, because writing the AES alg in
+#	Sleep is also ridiculous.
+
 # Change this to set the payloads to External/Internal Hosts / IPs
 
 global('$hostip', '$jsport', '$ssl','$TEMPDIR');
