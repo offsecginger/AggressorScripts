@@ -6,8 +6,8 @@ Aggressor scripts for use with [Cobalt Strike](https://cobaltstrike.com) 3.0+
 * MSBuild .xml
 * JSC .js
 * Windows JScript .js (for wscript or cscript)
-* Powershell (Via .jsp)
-* Tomcat .WAR (Via PowerShell)
+* .jsp executable (uses PowerShell)
+* Tomcat .WAR (uses PowerShell)
 * [PowerLessShell](https://github.com/Mr-Un1k0d3r/PowerLessShell) (Shellcode version) (Still uses MSBuild, but with RC4)
 * AES Powershell
 * Small C# Executable (~6kb)
