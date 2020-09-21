@@ -5,6 +5,9 @@ import random
 import base64
 import sys
 
+# $1 is the AESKey
+# $2 is the Code to be Ciphered
+
 CIPHER = (sys.argv[1])
 class AESCipher(object):
     def __init__(self, key):
