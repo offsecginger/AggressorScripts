@@ -1,4 +1,4 @@
-
+%%AMSI%%
 $%%VAR14%% = "%%CIPHER%%"
 
 function %%VAR15%%($%%VAR16%%, $%%VAR18%%) {
