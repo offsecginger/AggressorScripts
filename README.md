@@ -1,3 +1,5 @@
+# No longer Maintained!
+
 # AggressorScripts
 Aggressor scripts for use with [Cobalt Strike](https://cobaltstrike.com) 3.0+
 
